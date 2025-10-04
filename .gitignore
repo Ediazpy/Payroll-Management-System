@@ -1,0 +1,10 @@
+*.class
+
+IDE files
+
+*.idea/
+*.classpath
+*.project
+*.settings/
+nbproject/
+*.db

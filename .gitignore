@@ -1,7 +1,4 @@
 *.class
-
-IDE files
-
 *.idea/
 *.classpath
 *.project

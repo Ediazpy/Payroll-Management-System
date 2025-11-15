@@ -580,8 +580,5 @@ Feel free to use this code for learning, teaching, or as a foundation for your o
 
 <div align="center">
 
-**⭐ If you find this project helpful, please consider giving it a star! ⭐**
-
-Made with ❤️ by Emmanuel Diaz
 
 </div>

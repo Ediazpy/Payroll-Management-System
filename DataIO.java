@@ -78,25 +78,95 @@ public class DataIO
     
     public boolean delete (int employeeID ) throws SQLException
     {
-      // connect to the database
-        
+        // connect to the database
+
         Connection conn = DriverManager.getConnection(CONNECTION_STRING);
-        
+
         // Delete the record
-        
+
         String strSQL = "DELETE FROM employee WHERE EmployeeID = ?";
         PreparedStatement pstmt = conn.prepareStatement(strSQL);
         pstmt.setInt(1,employeeID);
         int rowsAffected = pstmt.executeUpdate();
-        
+
         // close the connection
-        
+
         conn.close();
-        
+
         if ( rowsAffected > 0)
             return true;        //record was deleted
         else
-            return false;       // zero rows affected so recored was not found
+            return false;       // zero rows affected so record was not found
+    }
+
+    public boolean update(Employee emp) throws SQLException
+    {
+        // connect to the database
+        Connection conn = DriverManager.getConnection(CONNECTION_STRING);
+
+        // Update the employee record
+        String sqlStr = "UPDATE employee SET EmployeeName = ?, EmployeeAddress = ?, "
+                + "Sales = ?, Tips = ?, Parts = ? WHERE employeeID = ?";
+        PreparedStatement pstmt = conn.prepareStatement(sqlStr);
+        pstmt.setString(1, emp.getName());
+        pstmt.setString(2, emp.getAddress());
+        pstmt.setDouble(3, emp.getSales());
+        pstmt.setDouble(4, emp.getTips());
+        pstmt.setDouble(5, emp.getParts());
+        pstmt.setInt(6, emp.getEmployeeID());
+
+        int rowsAffected = pstmt.executeUpdate();
+
+        // close the connection
+        conn.close();
+
+        return rowsAffected > 0; // true if record was updated
+    }
+
+    public Employee getById(int employeeID) throws SQLException
+    {
+        // connect to the database
+        Connection conn = DriverManager.getConnection(CONNECTION_STRING);
+
+        // get the specific employee record
+        String strSQL = "SELECT * FROM employee WHERE employeeID = ?";
+        PreparedStatement pstmt = conn.prepareStatement(strSQL);
+        pstmt.setInt(1, employeeID);
+        ResultSet rs = pstmt.executeQuery();
+
+        Employee emp = null;
+        if (rs.next())
+        {
+            int id = rs.getInt(1);
+            String name = rs.getString(2);
+            String address = rs.getString(3);
+            Double sales = rs.getDouble(4);
+            Double tips = rs.getDouble(5);
+            Double parts = rs.getDouble(6);
+
+            emp = new Employee(id, name, address, sales, tips, parts);
+        }
+
+        conn.close();
+        return emp;
+    }
+
+    public boolean exists(int employeeID) throws SQLException
+    {
+        Connection conn = DriverManager.getConnection(CONNECTION_STRING);
+        String strSQL = "SELECT COUNT(*) FROM employee WHERE employeeID = ?";
+        PreparedStatement pstmt = conn.prepareStatement(strSQL);
+        pstmt.setInt(1, employeeID);
+        ResultSet rs = pstmt.executeQuery();
+
+        boolean exists = false;
+        if (rs.next())
+        {
+            exists = rs.getInt(1) > 0;
+        }
+
+        conn.close();
+        return exists;
     }       
     
     public ArrayList<Employee> getList() throws SQLException

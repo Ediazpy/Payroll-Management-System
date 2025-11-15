@@ -52,8 +52,9 @@ public class Employee
     
    public double calculateWeeklySales()
     {
-        double weeklySales = ((sales - parts)/2) + tips;
-        return weeklySales;
+        // Commission calculation: 50% of (sales minus parts) plus tips
+        double weeklySales = ((sales - parts) / 2.0) + tips;
+        return Math.max(weeklySales, 0.0); // Ensure non-negative result
     }
    
    public String getDetails()
@@ -71,10 +72,32 @@ public class Employee
    }
    
     
-    /*public Double ytdPay()
+    // Validation method for input
+    public static boolean isValidID(String id)
     {
-        //////////////////////////////////////////////////////
-    }*/
+        try
+        {
+            int empId = Integer.parseInt(id);
+            return empId > 0;
+        }
+        catch (NumberFormatException e)
+        {
+            return false;
+        }
+    }
+
+    public static boolean isValidNumber(String num)
+    {
+        try
+        {
+            double value = Double.parseDouble(num);
+            return value >= 0.0;
+        }
+        catch (NumberFormatException e)
+        {
+            return false;
+        }
+    }
     
     
     // getters and setters
@@ -84,9 +107,12 @@ public class Employee
         return employeeID;
     }
 
-    public void setEmployeeID(int employeeID)   // validate
+    public void setEmployeeID(int employeeID)
     {
-        this.employeeID = employeeID;
+        if (employeeID > 0)
+            this.employeeID = employeeID;
+        else
+            this.employeeID = 0;
     }
 
     public String getName()
@@ -94,9 +120,12 @@ public class Employee
         return name;
     }
 
-    public void setName(String name)    // validate
+    public void setName(String name)
     {
-        this.name = name;
+        if (name != null && !name.trim().isEmpty())
+            this.name = name.trim();
+        else
+            this.name = "n/a";
     }
 
     public String getAddress()
@@ -104,9 +133,12 @@ public class Employee
         return address;
     }
 
-    public void setAddress(String address)  // validate
+    public void setAddress(String address)
     {
-        this.address = address;
+        if (address != null && !address.trim().isEmpty())
+            this.address = address.trim();
+        else
+            this.address = "n/a";
     }
 
     public Double getSales()
@@ -127,9 +159,12 @@ public class Employee
         return tips;
     }
 
-    public void setTips(Double tips)    // validate
+    public void setTips(Double tips)
     {
-        this.tips = tips;
+        if (tips != null && tips >= 0.0)
+            this.tips = tips;
+        else
+            this.tips = 0.0;
     }
 
     public Double getParts()
@@ -137,9 +172,12 @@ public class Employee
         return parts;
     }
 
-    public void setParts(Double parts)  // validate
+    public void setParts(Double parts)
     {
-        this.parts = parts;
+        if (parts != null && parts >= 0.0)
+            this.parts = parts;
+        else
+            this.parts = 0.0;
     }
     
 }

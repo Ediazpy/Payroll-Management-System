@@ -14,7 +14,11 @@ public class PayrollGUI extends javax.swing.JFrame
 {
     // class references
     DefaultListModel<Employee> employeeList = new DefaultListModel();
-    
+    DefaultListModel<String> weeklySalesList = new DefaultListModel();
+
+    private DataIO dataIO;
+    private java.util.HashMap<String, Double> dailySales = new java.util.HashMap<>();
+
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(PayrollGUI.class.getName());
 
     /**
@@ -24,6 +28,136 @@ public class PayrollGUI extends javax.swing.JFrame
     {
         initComponents();
         this.setLocationRelativeTo(null);
+
+        // Initialize database and load data
+        try
+        {
+            dataIO = new DataIO();
+            loadEmployeesFromDatabase();
+            setupWeeklySalesList();
+            setupEmployeeListTab();
+        }
+        catch (Exception ex)
+        {
+            logger.log(java.util.logging.Level.SEVERE, "Database initialization failed", ex);
+            JOptionPane.showMessageDialog(this,
+                "Error initializing database: " + ex.getMessage(),
+                "Database Error",
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void setupEmployeeListTab()
+    {
+        // Create components for the Employee List tab
+        pnlEmployeeList.setLayout(new java.awt.BorderLayout());
+
+        // Create a table to display employees
+        String[] columnNames = {"ID", "Name", "Address", "Sales", "Tips", "Parts", "Weekly Pay"};
+        javax.swing.table.DefaultTableModel tableModel = new javax.swing.table.DefaultTableModel(columnNames, 0)
+        {
+            @Override
+            public boolean isCellEditable(int row, int column)
+            {
+                return false; // Make table read-only
+            }
+        };
+
+        javax.swing.JTable employeeTable = new javax.swing.JTable(tableModel);
+        employeeTable.setFont(new java.awt.Font("Segoe UI", 0, 14));
+        employeeTable.setRowHeight(25);
+        javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(employeeTable);
+
+        // Create button panel
+        javax.swing.JPanel buttonPanel = new javax.swing.JPanel();
+        buttonPanel.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 10, 10));
+
+        javax.swing.JButton btnAddEmployee = new javax.swing.JButton("Add Employee");
+        javax.swing.JButton btnEditEmployee = new javax.swing.JButton("Edit Employee");
+        javax.swing.JButton btnDeleteEmployee = new javax.swing.JButton("Delete Employee");
+        javax.swing.JButton btnRefresh = new javax.swing.JButton("Refresh");
+
+        // Add action listeners
+        btnAddEmployee.addActionListener(e -> addEmployeeDialog());
+        btnEditEmployee.addActionListener(e -> editEmployeeDialog(employeeTable));
+        btnDeleteEmployee.addActionListener(e -> deleteEmployeeDialog(employeeTable));
+        btnRefresh.addActionListener(e -> refreshEmployeeTable(tableModel));
+
+        buttonPanel.add(btnAddEmployee);
+        buttonPanel.add(btnEditEmployee);
+        buttonPanel.add(btnDeleteEmployee);
+        buttonPanel.add(btnRefresh);
+
+        pnlEmployeeList.add(scrollPane, java.awt.BorderLayout.CENTER);
+        pnlEmployeeList.add(buttonPanel, java.awt.BorderLayout.SOUTH);
+
+        // Initial load of data
+        refreshEmployeeTable(tableModel);
+    }
+
+    private void refreshEmployeeTable(javax.swing.table.DefaultTableModel tableModel)
+    {
+        try
+        {
+            tableModel.setRowCount(0); // Clear existing rows
+            java.util.ArrayList<Employee> employees = dataIO.getList();
+            java.text.DecimalFormat fmt = new java.text.DecimalFormat("$#,##0.00");
+
+            for (Employee emp : employees)
+            {
+                Object[] row = {
+                    emp.getEmployeeID(),
+                    emp.getName(),
+                    emp.getAddress(),
+                    fmt.format(emp.getSales()),
+                    fmt.format(emp.getTips()),
+                    fmt.format(emp.getParts()),
+                    fmt.format(emp.calculateWeeklySales())
+                };
+                tableModel.addRow(row);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.log(java.util.logging.Level.SEVERE, "Failed to refresh employee table", ex);
+            JOptionPane.showMessageDialog(this,
+                "Error loading employees: " + ex.getMessage(),
+                "Database Error",
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void setupWeeklySalesList()
+    {
+        lstSalesWeek.setModel(weeklySalesList);
+        // Initialize all days with $0.00
+        String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+        for (String day : days)
+        {
+            dailySales.put(day, 0.0);
+            weeklySalesList.addElement(day + ": $0.00");
+        }
+    }
+
+    private void loadEmployeesFromDatabase()
+    {
+        try
+        {
+            employeeList.clear();
+            java.util.ArrayList<Employee> employees = dataIO.getList();
+            for (Employee emp : employees)
+            {
+                employeeList.addElement(emp);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.log(java.util.logging.Level.SEVERE, "Failed to load employees", ex);
+            JOptionPane.showMessageDialog(this,
+                "Error loading employees: " + ex.getMessage(),
+                "Database Error",
+                JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     /**
@@ -126,6 +260,13 @@ public class PayrollGUI extends javax.swing.JFrame
         });
 
         btnLoadToWeek.setText("Load Total");
+        btnLoadToWeek.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
+                btnLoadToWeekActionPerformed(evt);
+            }
+        });
 
         jcbDays.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" }));
 
@@ -133,6 +274,13 @@ public class PayrollGUI extends javax.swing.JFrame
         lblJobTotal1.setText("Sales for the week");
 
         btnCalculateWeek.setText("Calculate Week");
+        btnCalculateWeek.addActionListener(new java.awt.event.ActionListener()
+        {
+            public void actionPerformed(java.awt.event.ActionEvent evt)
+            {
+                btnCalculateWeekActionPerformed(evt);
+            }
+        });
 
         lstSalesWeek.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
         scrSalesWeek.setViewportView(lstSalesWeek);
@@ -341,9 +489,399 @@ public class PayrollGUI extends javax.swing.JFrame
 
     private void btnCalculateJobTotalActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_btnCalculateJobTotalActionPerformed
     {//GEN-HEADEREND:event_btnCalculateJobTotalActionPerformed
-        // calculate job Total
-        ////////////////////////////////////////////////////////////////////////////////////////
+        // Validate input fields
+        String salesStr = txtSales.getText().trim();
+        String partsStr = txtParts.getText().trim();
+        String tipsStr = txtTips.getText().trim();
+
+        if (salesStr.isEmpty() || partsStr.isEmpty() || tipsStr.isEmpty())
+        {
+            JOptionPane.showMessageDialog(this,
+                "Please enter Sales, Parts, and Tips values",
+                "Missing Information",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (!Employee.isValidNumber(salesStr) || !Employee.isValidNumber(partsStr) || !Employee.isValidNumber(tipsStr))
+        {
+            JOptionPane.showMessageDialog(this,
+                "Please enter valid numeric values for Sales, Parts, and Tips",
+                "Invalid Input",
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Calculate job total
+        double sales = Double.parseDouble(salesStr);
+        double parts = Double.parseDouble(partsStr);
+        double tips = Double.parseDouble(tipsStr);
+
+        // Commission calculation: 50% of (sales minus parts) plus tips
+        double jobTotal = ((sales - parts) / 2.0) + tips;
+        jobTotal = Math.max(jobTotal, 0.0); // Ensure non-negative
+
+        // Display in the job total list
+        java.text.DecimalFormat fmt = new java.text.DecimalFormat("$#,##0.00");
+        String jobInfo = "Sales: " + fmt.format(sales) +
+                         " | Parts: " + fmt.format(parts) +
+                         " | Tips: " + fmt.format(tips) +
+                         " | Total: " + fmt.format(jobTotal);
+
+        employeeList.addElement(new Employee(0, jobInfo, "", sales, tips, parts));
+
+        // Clear the input fields for next entry
+        txtSales.setText("");
+        txtParts.setText("");
+        txtTips.setText("");
+        txtSales.requestFocus();
+
+        JOptionPane.showMessageDialog(this,
+            "Job Total: " + fmt.format(jobTotal),
+            "Calculation Complete",
+            JOptionPane.INFORMATION_MESSAGE);
     }//GEN-LAST:event_btnCalculateJobTotalActionPerformed
+
+    private void btnLoadToWeekActionPerformed(java.awt.event.ActionEvent evt)
+    {
+        // Get the last calculated job total from the job total list
+        if (employeeList.isEmpty())
+        {
+            JOptionPane.showMessageDialog(this,
+                "Please calculate a job total first",
+                "No Job Total",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Get the selected day
+        String selectedDay = (String) jcbDays.getSelectedItem();
+
+        // Get the last employee (job) from the list
+        Employee lastJob = employeeList.getElementAt(employeeList.getSize() - 1);
+        double jobTotal = lastJob.calculateWeeklySales();
+
+        // Update the daily sales map
+        double currentDayTotal = dailySales.get(selectedDay);
+        currentDayTotal += jobTotal;
+        dailySales.put(selectedDay, currentDayTotal);
+
+        // Update the weekly sales list display
+        updateWeeklySalesDisplay();
+
+        java.text.DecimalFormat fmt = new java.text.DecimalFormat("$#,##0.00");
+        JOptionPane.showMessageDialog(this,
+            "Added " + fmt.format(jobTotal) + " to " + selectedDay,
+            "Success",
+            JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void btnCalculateWeekActionPerformed(java.awt.event.ActionEvent evt)
+    {
+        // Calculate total for the week
+        double weeklyTotal = 0.0;
+        for (double dayTotal : dailySales.values())
+        {
+            weeklyTotal += dayTotal;
+        }
+
+        java.text.DecimalFormat fmt = new java.text.DecimalFormat("$#,##0.00");
+        String message = "Total Weekly Earnings: " + fmt.format(weeklyTotal) + "\n\n";
+        message += "Breakdown by day:\n";
+
+        String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+        for (String day : days)
+        {
+            message += day + ": " + fmt.format(dailySales.get(day)) + "\n";
+        }
+
+        JOptionPane.showMessageDialog(this,
+            message,
+            "Weekly Total",
+            JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void updateWeeklySalesDisplay()
+    {
+        weeklySalesList.clear();
+        java.text.DecimalFormat fmt = new java.text.DecimalFormat("$#,##0.00");
+
+        String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+        for (String day : days)
+        {
+            double total = dailySales.get(day);
+            weeklySalesList.addElement(day + ": " + fmt.format(total));
+        }
+    }
+
+    private void addEmployeeDialog()
+    {
+        // Create input panel
+        javax.swing.JPanel panel = new javax.swing.JPanel(new java.awt.GridLayout(6, 2, 5, 5));
+
+        javax.swing.JTextField txtEmpID = new javax.swing.JTextField();
+        javax.swing.JTextField txtEmpName = new javax.swing.JTextField();
+        javax.swing.JTextField txtEmpAddress = new javax.swing.JTextField();
+        javax.swing.JTextField txtEmpSales = new javax.swing.JTextField("0.0");
+        javax.swing.JTextField txtEmpTips = new javax.swing.JTextField("0.0");
+        javax.swing.JTextField txtEmpParts = new javax.swing.JTextField("0.0");
+
+        panel.add(new javax.swing.JLabel("Employee ID:"));
+        panel.add(txtEmpID);
+        panel.add(new javax.swing.JLabel("Name:"));
+        panel.add(txtEmpName);
+        panel.add(new javax.swing.JLabel("Address:"));
+        panel.add(txtEmpAddress);
+        panel.add(new javax.swing.JLabel("Sales:"));
+        panel.add(txtEmpSales);
+        panel.add(new javax.swing.JLabel("Tips:"));
+        panel.add(txtEmpTips);
+        panel.add(new javax.swing.JLabel("Parts:"));
+        panel.add(txtEmpParts);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Add New Employee",
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+        if (result == JOptionPane.OK_OPTION)
+        {
+            try
+            {
+                // Validate inputs
+                String idStr = txtEmpID.getText().trim();
+                String name = txtEmpName.getText().trim();
+                String address = txtEmpAddress.getText().trim();
+
+                if (idStr.isEmpty() || name.isEmpty() || address.isEmpty())
+                {
+                    JOptionPane.showMessageDialog(this,
+                        "Please fill in all required fields (ID, Name, Address)",
+                        "Missing Information",
+                        JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if (!Employee.isValidID(idStr))
+                {
+                    JOptionPane.showMessageDialog(this,
+                        "Please enter a valid Employee ID (positive integer)",
+                        "Invalid ID",
+                        JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                int empId = Integer.parseInt(idStr);
+
+                // Check if employee already exists
+                if (dataIO.exists(empId))
+                {
+                    JOptionPane.showMessageDialog(this,
+                        "Employee ID " + empId + " already exists",
+                        "Duplicate ID",
+                        JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                if (!Employee.isValidNumber(txtEmpSales.getText()) ||
+                    !Employee.isValidNumber(txtEmpTips.getText()) ||
+                    !Employee.isValidNumber(txtEmpParts.getText()))
+                {
+                    JOptionPane.showMessageDialog(this,
+                        "Please enter valid numeric values for Sales, Tips, and Parts",
+                        "Invalid Input",
+                        JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                double sales = Double.parseDouble(txtEmpSales.getText().trim());
+                double tips = Double.parseDouble(txtEmpTips.getText().trim());
+                double parts = Double.parseDouble(txtEmpParts.getText().trim());
+
+                // Create and save employee
+                Employee emp = new Employee(empId, name, address, sales, tips, parts);
+                dataIO.add(emp);
+
+                JOptionPane.showMessageDialog(this,
+                    "Employee added successfully",
+                    "Success",
+                    JOptionPane.INFORMATION_MESSAGE);
+
+                loadEmployeesFromDatabase();
+            }
+            catch (Exception ex)
+            {
+                logger.log(java.util.logging.Level.SEVERE, "Failed to add employee", ex);
+                JOptionPane.showMessageDialog(this,
+                    "Error adding employee: " + ex.getMessage(),
+                    "Database Error",
+                    JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void editEmployeeDialog(javax.swing.JTable table)
+    {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow == -1)
+        {
+            JOptionPane.showMessageDialog(this,
+                "Please select an employee to edit",
+                "No Selection",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try
+        {
+            int empId = (Integer) table.getValueAt(selectedRow, 0);
+            Employee emp = dataIO.getById(empId);
+
+            if (emp == null)
+            {
+                JOptionPane.showMessageDialog(this,
+                    "Employee not found",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // Create input panel
+            javax.swing.JPanel panel = new javax.swing.JPanel(new java.awt.GridLayout(6, 2, 5, 5));
+
+            javax.swing.JTextField txtEmpID = new javax.swing.JTextField(String.valueOf(emp.getEmployeeID()));
+            txtEmpID.setEditable(false); // Don't allow changing ID
+            javax.swing.JTextField txtEmpName = new javax.swing.JTextField(emp.getName());
+            javax.swing.JTextField txtEmpAddress = new javax.swing.JTextField(emp.getAddress());
+            javax.swing.JTextField txtEmpSales = new javax.swing.JTextField(String.valueOf(emp.getSales()));
+            javax.swing.JTextField txtEmpTips = new javax.swing.JTextField(String.valueOf(emp.getTips()));
+            javax.swing.JTextField txtEmpParts = new javax.swing.JTextField(String.valueOf(emp.getParts()));
+
+            panel.add(new javax.swing.JLabel("Employee ID:"));
+            panel.add(txtEmpID);
+            panel.add(new javax.swing.JLabel("Name:"));
+            panel.add(txtEmpName);
+            panel.add(new javax.swing.JLabel("Address:"));
+            panel.add(txtEmpAddress);
+            panel.add(new javax.swing.JLabel("Sales:"));
+            panel.add(txtEmpSales);
+            panel.add(new javax.swing.JLabel("Tips:"));
+            panel.add(txtEmpTips);
+            panel.add(new javax.swing.JLabel("Parts:"));
+            panel.add(txtEmpParts);
+
+            int result = JOptionPane.showConfirmDialog(this, panel, "Edit Employee",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+            if (result == JOptionPane.OK_OPTION)
+            {
+                String name = txtEmpName.getText().trim();
+                String address = txtEmpAddress.getText().trim();
+
+                if (name.isEmpty() || address.isEmpty())
+                {
+                    JOptionPane.showMessageDialog(this,
+                        "Name and Address cannot be empty",
+                        "Missing Information",
+                        JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                if (!Employee.isValidNumber(txtEmpSales.getText()) ||
+                    !Employee.isValidNumber(txtEmpTips.getText()) ||
+                    !Employee.isValidNumber(txtEmpParts.getText()))
+                {
+                    JOptionPane.showMessageDialog(this,
+                        "Please enter valid numeric values for Sales, Tips, and Parts",
+                        "Invalid Input",
+                        JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                double sales = Double.parseDouble(txtEmpSales.getText().trim());
+                double tips = Double.parseDouble(txtEmpTips.getText().trim());
+                double parts = Double.parseDouble(txtEmpParts.getText().trim());
+
+                // Update employee
+                emp.setName(name);
+                emp.setAddress(address);
+                emp.setSales(sales);
+                emp.setTips(tips);
+                emp.setParts(parts);
+
+                dataIO.update(emp);
+
+                JOptionPane.showMessageDialog(this,
+                    "Employee updated successfully",
+                    "Success",
+                    JOptionPane.INFORMATION_MESSAGE);
+
+                loadEmployeesFromDatabase();
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.log(java.util.logging.Level.SEVERE, "Failed to edit employee", ex);
+            JOptionPane.showMessageDialog(this,
+                "Error updating employee: " + ex.getMessage(),
+                "Database Error",
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void deleteEmployeeDialog(javax.swing.JTable table)
+    {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow == -1)
+        {
+            JOptionPane.showMessageDialog(this,
+                "Please select an employee to delete",
+                "No Selection",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try
+        {
+            int empId = (Integer) table.getValueAt(selectedRow, 0);
+            String empName = (String) table.getValueAt(selectedRow, 1);
+
+            int confirm = JOptionPane.showConfirmDialog(this,
+                "Are you sure you want to delete employee:\n" +
+                "ID: " + empId + "\n" +
+                "Name: " + empName + "?",
+                "Confirm Delete",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+
+            if (confirm == JOptionPane.YES_OPTION)
+            {
+                boolean deleted = dataIO.delete(empId);
+
+                if (deleted)
+                {
+                    JOptionPane.showMessageDialog(this,
+                        "Employee deleted successfully",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                    loadEmployeesFromDatabase();
+                }
+                else
+                {
+                    JOptionPane.showMessageDialog(this,
+                        "Failed to delete employee",
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.log(java.util.logging.Level.SEVERE, "Failed to delete employee", ex);
+            JOptionPane.showMessageDialog(this,
+                "Error deleting employee: " + ex.getMessage(),
+                "Database Error",
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
 
     /**
      * @param args the command line arguments

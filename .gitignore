@@ -5,3 +5,13 @@
 *.settings/
 nbproject/
 *.db
+
+# Build artifacts
+target/
+build/
+dist/
+lib/
+
+# IDE
+.vscode/
+*.iml
